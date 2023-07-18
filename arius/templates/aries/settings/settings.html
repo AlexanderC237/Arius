@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% load i18n %}
+{% load static %}
+{% load arius_extras %}
+{% load plugin_extras %}
+
+{% block breadcrumb_list %}
+{% endblock breadcrumb_list %}
+
+{% block page_title %}
+{% arius_title %} | {% trans "Settings" %}
+{% endblock page_title %}
+
+{% block sidebar %}
+{% include "arius/settings/sidebar.html" %}
+{% endblock sidebar %}
+
+{% block content %}
+
+{% include "arius/settings/user.html" %}
+{% include "arius/settings/user_settings.html" %}
+{% include "arius/settings/user_display.html" %}
+{% include "arius/settings/user_homepage.html" %}
+{% include "arius/settings/user_search.html" %}
+{% include "arius/settings/user_notifications.html" %}
+{% include "arius/settings/user_reporting.html" %}
+
+{% if user.is_staff %}
+
+{% include "arius/settings/global.html" %}
+{% include "arius/settings/login.html" %}
+{% include "arius/settings/barcode.html" %}
+{% include "arius/settings/project_codes.html" %}
+{% include "arius/settings/notifications.html" %}
+{% include "arius/settings/label.html" %}
+{% include "arius/settings/report.html" %}
+{% include "arius/settings/part.html" %}
+{% include "arius/settings/part_parameters.html" %}
+{% include "arius/settings/part_stocktake.html" %}
+{% include "arius/settings/category.html" %}
+{% include "arius/settings/pricing.html" %}
+{% include "arius/settings/stock.html" %}
+{% include "arius/settings/build.html" %}
+{% include "arius/settings/po.html" %}
+{% include "arius/settings/so.html" %}
+{% include "arius/settings/returns.html" %}
+
+{% include "arius/settings/plugin.html" %}
+{% plugin_list as pl_list %}
+{% for plugin_key, plugin in pl_list.items %}
+    {% if plugin.registered_mixins %}
+        {% include "arius/settings/plugin_settings.html" %}
+    {% endif %}
+{% endfor %}
+
+{% endif %}
+
+{% endblock content %}
+
+{% block js_load %}
+{{ block.super }}
+{% endblock js_load %}
+
+{% block js_ready %}
+{{ block.super }}
+
+{% include "arius/settings/settings_js.html" %}
+
+{% if user.is_staff %}
+    {% include "arius/settings/settings_staff_js.html" %}
+{% endif %}
+
+enableSidebar('settings');
+
+{% endblock js_ready %}

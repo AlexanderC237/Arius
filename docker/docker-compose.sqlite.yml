@@ -1,0 +1,64 @@
+version: "3.8"
+
+# Docker compose recipe for arius development server
+# - Runs sqlite database
+# - Uses built-in django webserver
+# - Runs the arius background worker process
+# - Serves media and static content directly from Django webserver
+
+# IMPORTANT NOTE:
+# The arius docker image does not clone source code from git.
+# Instead, you must specify *where* the source code is located,
+# (on your local machine).
+# The django server will auto-detect any code changes and reload the server.
+
+services:
+
+    # arius web server services
+    # Uses gunicorn as the web server
+    arius-dev-server:
+        container_name: arius-dev-server
+        build:
+            context: .
+            target: dev
+        # Cache the built image to be used by the arius-dev-worker process
+        image: arius-dev-image
+        ports:
+            # Expose web server on port 8000
+            - 8000:8000
+        volumes:
+            # Ensure you specify the location of the 'src' directory at the end of this file
+            - src:/home/arius
+        environment:
+            - ARIUS_DEBUG=True
+            - ARIUS_DB_ENGINE=sqlite
+            - ARIUS_DB_NAME=/home/arius/db.sqlite3
+        restart: unless-stopped
+
+    # Background worker process handles long-running or periodic tasks
+    arius-dev-worker:
+        container_name: arius-dev-worker
+        image: arius-dev-image
+        command: invoke worker
+        depends_on:
+            - arius-dev-server
+        volumes:
+            # Ensure you specify the location of the 'src' directory at the end of this file
+            - src:/home/arius
+        environment:
+            - ARIUS_DEBUG=True
+            - ARIUS_DB_ENGINE=sqlite
+            - ARIUS_DB_NAME=/home/arius/db.sqlite3
+        restart: unless-stopped
+
+volumes:
+    # NOTE: Change "../" to a directory on your local machine, where the arius source code is located
+    # Persistent data, stored external to the container(s)
+    src:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            # This directory specified where arius source code is stored "outside" the docker containers
+            # By default, this directory is one level above the "docker" directory
+            device: ${ARIUS_EXT_VOLUME:-../}

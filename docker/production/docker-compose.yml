@@ -1,0 +1,137 @@
+version: "3.8"
+
+# Docker compose recipe for a production-ready arius setup, with the following containers:
+# - PostgreSQL as the database backend
+# - gunicorn as the arius web server
+# - django-q as the arius background worker process
+# - nginx as a reverse proxy
+# - redis as the cache manager (optional, disabled by default)
+
+# ---------------------
+# READ BEFORE STARTING!
+# ---------------------
+
+# -----------------------------
+# Setting environment variables
+# -----------------------------
+# Shared environment variables should be stored in the .env file
+# Changes made to this file are reflected across all containers!
+#
+# IMPORTANT NOTE:
+# You should not have to change *anything* within this docker-compose.yml file!
+# Instead, make any changes in the .env file!
+
+# ------------------------
+# arius Image Versions
+# ------------------------
+# By default, this docker-compose script targets the STABLE version of arius,
+# image: arius/arius:stable
+#
+# To run the LATEST (development) version of arius,
+# change the ARIUS_TAG variable (in the .env file) to "latest"
+#
+# Alternatively, you could target a specific tagged release version with (for example):
+# ARIUS_TAG=0.7.5
+#
+
+services:
+    # Database service
+    # Use PostgreSQL as the database backend
+    arius-db:
+        container_name: arius-db
+        image: postgres:13
+        expose:
+            - ${ARIUS_DB_PORT:-5432}/tcp
+        environment:
+            - PGDATA=/var/lib/postgresql/data/pgdb
+            - POSTGRES_USER=${ARIUS_DB_USER:?You must provide the 'ARIUS_DB_USER' variable in the .env file}
+            - POSTGRES_PASSWORD=${ARIUS_DB_PASSWORD:?You must provide the 'ARIUS_DB_PASSWORD' variable in the .env file}
+            - POSTGRES_DB=${ARIUS_DB_NAME:?You must provide the 'ARIUS_DB_NAME' variable in the .env file}
+        volumes:
+            # Map 'data' volume such that postgres database is stored externally
+            - arius_data:/var/lib/postgresql/data/
+        restart: unless-stopped
+
+    # redis acts as database cache manager
+    # only runs under the "redis" profile : https://docs.docker.com/compose/profiles/
+    arius-cache:
+        container_name: arius-cache
+        image: redis:7.0
+        depends_on:
+            - arius-db
+        profiles:
+            - redis
+        env_file:
+            - .env
+        expose:
+            - ${ARIUS_CACHE_PORT:-6379}
+        restart: always
+
+    # arius web server service
+    # Uses gunicorn as the web server
+    arius-server:
+        container_name: arius-server
+        # If you wish to specify a particular arius version, do so here
+        image: arius/arius:${ARIUS_TAG:-stable}
+        # Only change this port if you understand the stack.
+        # If you change this you have to change:
+        # - the proxy settings (on two lines)
+        # - only change the exposed port - eg `1338:8000` if you want to expose the server on port 1338
+        expose:
+            - 8000
+        depends_on:
+            - arius-db
+        env_file:
+            - .env
+        volumes:
+            # Data volume must map to /home/arius/data
+            - arius_data:/home/arius/data
+        restart: unless-stopped
+
+    # Background worker process handles long-running or periodic tasks
+    arius-worker:
+        container_name: arius-worker
+        # If you wish to specify a particular arius version, do so here
+        image: arius/arius:${ARIUS_TAG:-stable}
+        command: invoke worker
+        depends_on:
+            - arius-server
+        env_file:
+            - .env
+        volumes:
+            # Data volume must map to /home/arius/data
+            - arius_data:/home/arius/data
+        restart: unless-stopped
+
+    # nginx acts as a reverse proxy
+    # static files are served directly by nginx
+    # media files are served by nginx, although authentication is redirected to arius-server
+    # web requests are redirected to gunicorn
+    # NOTE: You will need to provide a working nginx.conf file!
+    arius-proxy:
+        container_name: arius-proxy
+        image: nginx:stable
+        depends_on:
+            - arius-server
+        env_file:
+            - .env
+        ports:
+            # Default web port is 1337 (can be changed in the .env file)
+            - ${ARIUS_WEB_PORT:-1337}:80
+        volumes:
+            # Provide nginx configuration file to the container
+            # Refer to the provided example file as a starting point
+            - ./nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+            # nginx proxy needs access to static and media files
+            - arius_data:/var/www
+        restart: unless-stopped
+
+volumes:
+    # Persistent data, stored external to the container(s)
+    arius_data:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            # This directory specified where arius data are stored "outside" the docker containers
+            device: ${ARIUS_EXT_VOLUME:?You must specify the 'ARIUS_EXT_VOLUME' variable in the .env file!}

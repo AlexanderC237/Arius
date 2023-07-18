@@ -1,0 +1,72 @@
+version: "3.8"
+
+# Docker compose recipe for arius development server
+# - Runs PostgreSQL as the database backend
+# - Uses built-in django webserver
+# - Runs the arius background worker process
+# - Serves media and static content directly from Django webserver
+
+# IMPORTANT NOTE:
+# The arius development image does not clone source code from git.
+# Instead, it runs from source code on your local machine.
+# The django server will auto-detect any code changes and reload the server.
+
+# If you have cloned the arius git repo, and not made any changes to this file,
+# then the default setup in this file should work straight out of the box, without modification
+
+services:
+
+    # Database service
+    # Use PostgreSQL as the database backend
+    # Note: This can be changed to a different backend if required
+    arius-dev-db:
+        container_name: arius-dev-db
+        image: postgres:13
+        expose:
+            - 5432/tcp
+        environment:
+            - PGDATA=/var/lib/postgresql/data/pgdb
+            - POSTGRES_USER=pguser
+            - POSTGRES_PASSWORD=pgpassword
+            - POSTGRES_DB=arius
+        volumes:
+            # Map 'data' volume such that postgres database is stored externally
+            - ./data:/var/lib/postgresql/data:z
+        restart: unless-stopped
+
+    # arius web server service
+    # Runs the django built-in webserver application
+    arius-dev-server:
+        container_name: arius-dev-server
+        depends_on:
+            - arius-dev-db
+        build:
+            &build_config
+            context: .
+            target: dev
+        # Cache the built image to be used by the arius-dev-worker process
+        image: arius-dev-image
+        ports:
+            # Expose web server on port 8000
+            - 8000:8000
+        volumes:
+            # Mount local source directory to /home/arius
+            - ./:/home/arius:z
+        env_file:
+            - docker.dev.env
+        restart: unless-stopped
+
+    # Background worker process handles long-running or periodic tasks
+    arius-dev-worker:
+        container_name: arius-dev-worker
+        image: arius-dev-image
+        build: *build_config
+        command: invoke worker
+        depends_on:
+            - arius-dev-server
+        volumes:
+            # Mount local source directory to /home/arius
+            - ./:/home/arius:z
+        env_file:
+            - docker.dev.env
+        restart: unless-stopped

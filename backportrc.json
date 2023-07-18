@@ -1,0 +1,8 @@
+{
+  "repoOwner": "Oliver Walters",
+  "repoName": "Arius",
+  "targetBranchChoices": [],
+  "branchLabelMapping": {
+    "^backport-to-(.+)$": "$1"
+  }
+}

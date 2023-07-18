@@ -1,0 +1,13 @@
+# Version Information:{% load arius_extras %}
+Arius-Version: {% arius_version %}
+Django Version: {% django_version %}
+{% arius_commit_hash as hash %}{% if hash %}Commit Hash: {{ hash }}{% endif %}
+{% arius_commit_date as commit_date %}{% if commit_date %}Commit Date: {% render_date commit_date %}{% endif %}
+{% arius_branch as branch %}{% if branch %}Commit Branch: {{ branch }}{% endif %}
+Database: {% arius_db_engine %}
+Debug-Mode: {% arius_in_debug_mode %}
+Deployed using Docker: {% arius_docker_mode %}
+Platform: {% arius_platform %}
+Installer: {% arius_installer %}
+{% arius_target as target %}{% if target %}Target: {{ target }}{% endif %}
+Active plugins: {% plugins_info %}

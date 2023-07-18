@@ -1,0 +1,13 @@
+# Sample settings objects
+
+- model: common.AriusSetting
+  pk: 1
+  fields:
+    key: ARIUS_INSTANCE
+    value: "My very first arius Instance"
+
+- model: common.AriusSetting
+  pk: 2
+  fields:
+    key: ARIUS_COMPANY_NAME
+    value: "ACME Pty Ltd"
